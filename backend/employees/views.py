@@ -7,9 +7,9 @@ import csv
 import io
 import pandas as pd
 from .models import Employee, EmployeeRole
-from .serializers import EmployeeSerializer, EmployeeRoleSerializer
+from .serializers import EmployeeSerializer, EmployeeRoleSerializer, PublicEmployeeSerializer
 from companies.models import Company, Department
-from users.permissions import IsAdminOrTalentVerifyStaff, IsCompanyAdmin
+from users.permissions import IsAdminOrTalentVerifyStaff, IsAdminOrTalentVerifyStaffOrCompanyAdmin, IsCompanyAdmin
 from django_filters.rest_framework import DjangoFilterBackend
 
 class EmployeeViewSet(viewsets.ModelViewSet):
@@ -21,8 +21,10 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy', 'bulk_upload']:
+            # Only Talent Verify staff and company admins can modify employee data
             permission_classes = [IsAdminOrTalentVerifyStaff|IsCompanyAdmin]
         else:
+            # But all authenticated users can search/view
             permission_classes = [permissions.IsAuthenticated]
         return [permission() for permission in permission_classes]
     
@@ -60,15 +62,13 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             else:
                 queryset = queryset.filter(roles__date_left__year=year_left)
         
-        # Admin and Talent Verify staff can see all employees
+        # Admin and Talent Verify staff can see all employee details
         if user.is_talent_verify_user:
             return queryset.distinct()
         
-        # Company users can only see employees in their company
-        if user.company:
-            return queryset.filter(company=user.company).distinct()
-            
-        return Employee.objects.none()
+        # Company users can now see all employee records across companies for searching
+        # but with potentially limited sensitive information
+        return queryset.distinct()
     
     def create(self, request, *args, **kwargs):
         roles_data = request.data.pop('roles', [])
@@ -201,7 +201,7 @@ class EmployeeRoleViewSet(viewsets.ModelViewSet):
     
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            permission_classes = [IsAdminOrTalentVerifyStaff|IsCompanyAdmin]
+            permission_classes = [IsAdminOrTalentVerifyStaffOrCompanyAdmin]
         else:
             permission_classes = [permissions.IsAuthenticated]
         return [permission() for permission in permission_classes]
@@ -215,15 +215,18 @@ class EmployeeRoleViewSet(viewsets.ModelViewSet):
         if employee_id:
             queryset = queryset.filter(employee_id=employee_id)
         
-        # Admin and Talent Verify staff can see all roles
-        if user.is_talent_verify_user:
-            return queryset
+        # All authenticated users can now search role history across companies
+        return queryset
+    
+    def get_serializer_class(self):
+        user = self.request.user
         
-        # Company users can only see roles in their company
-        if user.company:
-            return queryset.filter(employee__company=user.company)
-            
-        return EmployeeRole.objects.none()
+        # Company users viewing their own company's employees get full details
+        if user.is_talent_verify_user or (user.company and self.get_object().company == user.company):
+            return EmployeeSerializer
+        
+        # For cross-company viewing, use the limited public serializer
+        return PublicEmployeeSerializer
     
     def create(self, request, *args, **kwargs):
         # Ensure company admin can only create for their company's employees

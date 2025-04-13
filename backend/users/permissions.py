@@ -13,3 +13,10 @@ class IsCompanyAdmin(permissions.BasePermission):
     """
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.role == request.user.ROLE_COMPANY_ADMIN
+    
+class IsAdminOrTalentVerifyStaffOrCompanyAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        # Return True if user satisfies either permission
+        admin_or_staff_perm = IsAdminOrTalentVerifyStaff().has_permission(request, view)
+        company_admin_perm = IsCompanyAdmin().has_permission(request, view)
+        return admin_or_staff_perm or company_admin_perm

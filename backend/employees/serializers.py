@@ -73,3 +73,31 @@ class EmployeeSerializer(serializers.ModelSerializer):
         instance.save()
                 
         return instance
+    
+class PublicEmployeeSerializer(serializers.ModelSerializer):
+    company_name = serializers.CharField(source='company.name', read_only=True)
+    current_role = serializers.SerializerMethodField()
+    current_department = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Employee
+        # Exclude employee_id which is sensitive
+        fields = ('id', 'name', 'company', 'company_name', 
+                  'current_role', 'current_department', 
+                  'created_at', 'updated_at')
+        read_only_fields = ('id', 'created_at', 'updated_at')
+    
+    def get_current_role(self, obj):
+        role = obj.current_role
+        if role:
+            return {
+                'id': role.id,
+                'role': role.role,
+                'department': role.department.name,
+                'date_started': role.date_started
+            }
+        return None
+    
+    def get_current_department(self, obj):
+        department = obj.current_department
+        return department.name if department else None
