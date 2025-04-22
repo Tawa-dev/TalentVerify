@@ -20,3 +20,10 @@ class IsAdminOrTalentVerifyStaffOrCompanyAdmin(permissions.BasePermission):
         admin_or_staff_perm = IsAdminOrTalentVerifyStaff().has_permission(request, view)
         company_admin_perm = IsCompanyAdmin().has_permission(request, view)
         return admin_or_staff_perm or company_admin_perm
+    
+class IsCompanyUser(permissions.BasePermission):
+    """
+    Permission to allow any company user (admin or staff).
+    """
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.is_company_user

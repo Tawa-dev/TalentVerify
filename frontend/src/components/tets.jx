@@ -1,0 +1,53 @@
+import React from 'react';
+import { NavLink, Outlet } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+const Layout = () => {
+  const { user, hasRole, logout } = useAuth();
+
+  return (
+    <div className="app-container">
+      <header>
+        <nav>
+          <ul>
+            <li><NavLink to="/">Dashboard</NavLink></li>
+            
+            {/* Company Admin+ Routes */}
+            {hasRole(['company_admin', 'admin', 'talent_verify_staff']) && (
+              <>
+                <li><NavLink to="/employees">Employees</NavLink></li>
+                <li><NavLink to="/upload/employees">Upload Employees</NavLink></li>
+              </>
+            )}
+            
+            {/* Talent Verify Staff+ Routes */}
+            {hasRole(['admin', 'talent_verify_staff']) && (
+              <>
+                <li><NavLink to="/companies">Companies</NavLink></li>
+                <li><NavLink to="/upload/companies">Upload Companies</NavLink></li>
+              </>
+            )}
+            
+            <li><NavLink to="/search">Search</NavLink></li>
+          </ul>
+        </nav>
+        <div className="user-info">
+          {user ? (
+            <>
+              <span>Welcome, {user.username}</span>
+              <button onClick={logout}>Logout</button>
+            </>
+          ) : (
+            <NavLink to="/login">Login</NavLink>
+          )}
+        </div>
+      </header>
+      
+      <main>
+        <Outlet />
+      </main>
+    </div>
+  );
+};
+
+export default Layout;

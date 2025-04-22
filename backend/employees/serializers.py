@@ -5,6 +5,7 @@ from companies.serializers import DepartmentSerializer
 
 class EmployeeRoleSerializer(serializers.ModelSerializer):
     department_name = serializers.CharField(source='department.name', read_only=True)
+    department = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), required=False)
     
     class Meta:
         model = EmployeeRole
@@ -49,13 +50,39 @@ class EmployeeSerializer(serializers.ModelSerializer):
         for role_data in roles_data:
             # Get department from role data
             department_id = role_data.pop('department')
-            department = Department.objects.get(id=department_id)
             
-            EmployeeRole.objects.create(
-                employee=employee,
-                department=department,
-                **role_data
-            )
+            # If department_id is not an integer, it might be a name
+            if not isinstance(department_id, int):
+                try:
+                    # Try to get by ID first (in case it's a string representation of an ID)
+                    try:
+                        department = Department.objects.get(id=int(department_id))
+                    except (ValueError, Department.DoesNotExist):
+                        # If that fails, try to get by name
+                        department = Department.objects.get(
+                            name__iexact=department_id,
+                            company=employee.company
+                        )
+                    department_id = department.id
+                except Department.DoesNotExist:
+                    # Create a new department if it doesn't exist
+                    department = Department.objects.create(
+                        name=department_id,
+                        company=employee.company
+                    )
+                    department_id = department.id
+            
+            try:
+                department = Department.objects.get(id=department_id)
+                
+                EmployeeRole.objects.create(
+                    employee=employee,
+                    department=department,
+                    **role_data
+                )
+            except Department.DoesNotExist:
+                # Log error or handle as needed
+                pass
             
         return employee
     

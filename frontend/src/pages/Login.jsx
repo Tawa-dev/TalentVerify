@@ -11,19 +11,16 @@ export default function Login() {
   const { register, handleSubmit, formState: { errors } } = useForm()
   const [loading, setLoading] = useState(false)
 
-  const notify = () => toast('Here is your toast.');
 
-
-  const onSubmit = async ({ email, password }) => {
+  const onSubmit = async ({ username, password }) => {
     try {
       setLoading(true)
-      const success = await login(email, password)
+      const success = await login(username, password)
       
       if (success) {
         toast.success('Login successful!')
         navigate('/')
       } else {
-        notify
         toast.error('Invalid credentials')
       }
     } catch (error) {
@@ -39,21 +36,21 @@ export default function Login() {
         <h2 className="text-2xl font-bold mb-6 text-center">Talent Verify Login</h2>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
-          <Toaster />
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <Toaster/>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
             <input
-              {...register('email', { 
-                required: 'Email is required',
-                pattern: {
-                  value: /\S+@\S+\.\S+/,
-                  message: 'Invalid email format'
-                }
+              {...register('username', { 
+                required: 'Username is required',
+                // pattern: {
+                //   value: /\S+@\S+\.\S+/,
+                //   message: 'Invalid email format'
+                // }
               })}
-              type="email"
+              type="text"
               className="w-full p-2 border rounded-md"
               disabled={loading}
             />
-            {errors.email && <span className="text-red-500 text-sm">{errors.email.message}</span>}
+            {errors.username && <span className="text-red-500 text-sm">{errors.username.message}</span>}
           </div>
 
           <div>
@@ -61,10 +58,10 @@ export default function Login() {
             <input
               {...register('password', { 
                 required: 'Password is required',
-                minLength: {
-                  value: 6,
-                  message: 'Password must be at least 6 characters'
-                }
+                // minLength: {
+                //   value: 6,
+                //   message: 'Password must be at least 6 characters'
+                // }
               })}
               type="password"
               className="w-full p-2 border rounded-md"
@@ -76,14 +73,15 @@ export default function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600 disabled:bg-gray-400"
+            className="w-full bg-blue-500 text-white p-2 rounded-md hover:cursor-pointer hover:bg-blue-600 disabled:bg-gray-400"
           >
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
 
         <div className="mt-4 text-center">
-          <Link to="/forgot-password" className="text-blue-500 text-sm hover:underline">
+          {/* to implement */}
+          <Link to="" className="text-blue-500 text-sm hover:underline">
             Forgot Password?
           </Link>
         </div>

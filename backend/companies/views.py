@@ -1,13 +1,14 @@
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction
 import csv
 import io
 import pandas as pd
 from .models import Company, Department
 from .serializers import CompanySerializer, DepartmentSerializer
-from users.permissions import IsAdminOrTalentVerifyStaff, IsCompanyAdmin
+from users.permissions import IsAdminOrTalentVerifyStaff, IsAdminOrTalentVerifyStaffOrCompanyAdmin, IsCompanyAdmin
 
 class CompanyViewSet(viewsets.ModelViewSet):
     queryset = Company.objects.all().order_by('name')
@@ -73,9 +74,11 @@ class CompanyViewSet(viewsets.ModelViewSet):
                     companies = self._process_csv(file)
                 elif file_extension in ['xls', 'xlsx']:
                     companies = self._process_excel(file)
+                elif file_extension == 'txt':
+                    companies = self._process_text(file)
                 else:
                     return Response(
-                        {'error': 'Unsupported file format. Please upload CSV or Excel file.'},
+                        {'error': 'Unsupported file format. Please upload CSV or Excel, or text file.'},
                         status=status.HTTP_400_BAD_REQUEST
                     )
                 
@@ -97,6 +100,20 @@ class CompanyViewSet(viewsets.ModelViewSet):
         df = pd.read_excel(file)
         rows = df.to_dict('records')
         return self._process_rows(rows)
+    
+    def _process_text(self, file, company):
+        """Process plain text file for bulk upload"""
+        decoded_file = file.read().decode('utf-8')
+        lines = decoded_file.splitlines()
+        # Assume tab or comma separated values
+        delimiter = '\t' if '\t' in lines[0] else ','
+        headers = lines[0].split(delimiter)
+        rows = []
+        for line in lines[1:]:
+            values = line.split(delimiter)
+            row = {headers[i]: values[i] for i in range(min(len(headers), len(values)))}
+            rows.append(row)
+        return self._process_rows(rows, company)
     
     def _process_rows(self, rows):
         """Process rows of data for company creation/update"""
@@ -137,30 +154,27 @@ class CompanyViewSet(viewsets.ModelViewSet):
 class DepartmentViewSet(viewsets.ModelViewSet):
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['company']
     
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            permission_classes = [IsAdminOrTalentVerifyStaff|IsCompanyAdmin]
+            permission_classes = [IsAdminOrTalentVerifyStaffOrCompanyAdmin]
         else:
             permission_classes = [permissions.IsAuthenticated]
         return [permission() for permission in permission_classes]
     
     def get_queryset(self):
         user = self.request.user
+        queryset = Department.objects.all()
         
         # Filter by company if specified
         company_id = self.request.query_params.get('company')
-        queryset = Department.objects.all()
-        
         if company_id:
             queryset = queryset.filter(company_id=company_id)
-        
-        # Admin and Talent Verify staff can see all departments
-        if user.is_talent_verify_user:
-            return queryset
-        
-        # Company users can only see departments in their company
-        if user.company:
-            return queryset.filter(company=user.company)
             
-        return Department.objects.none()
+        # If user is company admin, limit to their company
+        if not user.is_talent_verify_user and user.company:
+            queryset = queryset.filter(company=user.company)
+            
+        return queryset
