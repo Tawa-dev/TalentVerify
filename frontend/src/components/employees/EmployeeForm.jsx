@@ -4,13 +4,11 @@ import { useState, useEffect } from 'react'
 import { api } from '../../services/api'
 import toast from 'react-hot-toast'
 
-export default function EmployeeForm({ onSubmit }) {
-  const { register, handleSubmit, formState: { errors }, reset } = useForm()
+export default function EmployeeForm({ onSubmit, initialData, isEditing }) {
+  const { register, handleSubmit, formState: { errors }, reset, setValue } = useForm()
   const { user } = useAuth()
   const [departments, setDepartments] = useState([])
   const [isLoading, setIsLoading] = useState(true)
-
-  
 
   useEffect(() => {
     // Fetch departments for the user's company
@@ -34,24 +32,59 @@ export default function EmployeeForm({ onSubmit }) {
     fetchDepartments()
   }, [user?.company])
   
+  useEffect(() => {
+    // If editing, populate the form with initial data
+    if (initialData && isEditing) {
+      setValue('name', initialData.name)
+      setValue('emp_id', initialData.employee_id)
+      
+      // Find current role and set its values
+      if (initialData.current_role) {
+        setValue('dept', initialData.current_role.department_id)
+        setValue('role', initialData.current_role.role)
+        setValue('start_date', 
+          initialData.current_role.date_started ? 
+            initialData.current_role.date_started.split('T')[0] : '')
+        setValue('end_date', 
+          initialData.current_role.date_left ? 
+            initialData.current_role.date_left.split('T')[0] : '')
+        setValue('duties', initialData.current_role.duties)
+      }
+    }
+  }, [initialData, isEditing, setValue])
 
   const handleFormSubmit = async (data) => {
     // Format data for backend
-    const payload = {
-      name: data.name,
-      employee_id: data.emp_id,
-      company: user.company,
-      roles: [{
-        department: data.dept, // Now this will be the department ID from the dropdown
-        role: data.role,
-        date_started: data.start_date,
-        date_left: data.end_date || null,
-        duties: data.duties
-      }]
-    }
+    const payload = isEditing 
+      ? {
+          id: initialData.id,
+          name: data.name,
+          employee_id: data.emp_id,
+          company: user.company,
+          // For updates, we're updating the current role
+          current_role: {
+            department: data.dept,
+            role: data.role,
+            date_started: data.start_date,
+            date_left: data.end_date || null,
+            duties: data.duties
+          }
+        }
+      : {
+          name: data.name,
+          employee_id: data.emp_id,
+          company: user.company,
+          roles: [{
+            department: data.dept,
+            role: data.role,
+            date_started: data.start_date,
+            date_left: data.end_date || null,
+            duties: data.duties
+          }]
+        };
     
     await onSubmit(payload)
-    reset()
+    if (!isEditing) reset()
   }
 
   return (
@@ -142,7 +175,7 @@ export default function EmployeeForm({ onSubmit }) {
       </div>
 
       <button type="submit" className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
-        Save Employee
+        {isEditing ? 'Update Employee' : 'Save Employee'}
       </button>
     </form>
   )

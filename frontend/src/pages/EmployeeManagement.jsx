@@ -36,14 +36,12 @@ export default function EmployeeManagement() {
   }
 
   const handleUpdate = async (data) => {
-    if(user.can_manage_company_data) {
-      try {
-        await api.patch(`/employees/${data.id}/`, data) // Note the trailing slash
-        toast.success('Employee updated successfully')
-        loadEmployees()
-      } catch (error) {
-        toast.error(`Error updating employee: ${error.response?.data?.error || error.message}`)
-      }
+    try {
+      await api.patch(`/employees/${data.id}/`, data) // Note the trailing slash
+      toast.success('Employee updated successfully')
+      loadEmployees()
+    } catch (error) {
+      toast.error(`Error updating employee: ${error.response?.data?.error || error.message}`)
     }
   }
 
@@ -65,48 +63,46 @@ export default function EmployeeManagement() {
   // Refresh after bulk upload
   const handleBulkUploadSuccess = () => {
     loadEmployees()
+    toast.success('Employees imported successfully')
   }
 
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-lg shadow-sm">
-  
+        <div className="mb-6">
+          <div className="flex border-b">
+            <button 
+              className={`py-2 px-4 ${activeTab === 'single' ? 'border-b-2 border-blue-500 font-medium' : ''}`}
+              onClick={() => setActiveTab('single')}
+            >
+              Single Entry
+            </button>
+            <button 
+              className={`py-2 px-4 ${activeTab === 'bulk' ? 'border-b-2 border-blue-500 font-medium' : ''}`}
+              onClick={() => setActiveTab('bulk')}
+            >
+              Bulk Upload
+            </button>
+          </div>
 
-
-      <div className="mb-6">
-        <div className="flex border-b">
-          <button 
-            className={`py-2 px-4 ${activeTab === 'single' ? 'border-b-2 border-blue-500 font-medium' : ''}`}
-            onClick={() => setActiveTab('single')}
-          >
-            Single Entry
-          </button>
-          <button 
-            className={`py-2 px-4 ${activeTab === 'bulk' ? 'border-b-2 border-blue-500 font-medium' : ''}`}
-            onClick={() => setActiveTab('bulk')}
-          >
-            Bulk Upload
-          </button>
-        </div>
-
-        <div className="mt-4">
-          {activeTab === 'single' ? (
-            <div>
-              <h2 className="text-xl font-semibold mb-3">Add Employee</h2>
-              <EmployeeForm onSubmit={handleCreate} />
-            </div>
-          ) : (
-            <div>
-              <h2 className="text-xl font-semibold mb-3">Bulk Upload Employees</h2>
-              <BulkUpload onSuccess={handleBulkUploadSuccess} />
-            </div>
-          )}
+          <div className="mt-4">
+            {activeTab === 'single' ? (
+              <div>
+                <h2 className="text-xl font-semibold mb-3">Add Employee</h2>
+                <EmployeeForm onSubmit={handleCreate} />
+              </div>
+            ) : (
+              <div>
+                <h2 className="text-xl font-semibold mb-3">Bulk Upload Employees</h2>
+                <BulkUpload 
+                  type="employees"
+                  onSuccess={handleBulkUploadSuccess} 
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
-
-    </div>
-
-
       
       <div className="bg-white p-6 rounded-lg shadow-sm">
         <h3 className="text-lg font-semibold mb-4">Employee List</h3>
@@ -115,7 +111,7 @@ export default function EmployeeManagement() {
         ) : (
           <EmployeeTable 
             data={employees}
-            onEdit={handleUpdate}
+            onUpdate={handleUpdate}
           />
         )}
       </div>
