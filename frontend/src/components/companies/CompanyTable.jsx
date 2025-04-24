@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { format } from 'date-fns'
 
-export default function CompanyTable({ data = [], onEdit }) {
+export default function CompanyTable({ data, onEdit }) {
   console.log('CompanyTable received data:', data)
   const [expandedRows, setExpandedRows] = useState([])
 

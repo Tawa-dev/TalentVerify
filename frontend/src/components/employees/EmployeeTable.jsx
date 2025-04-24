@@ -1,12 +1,14 @@
 import { useState } from 'react'
 
-export default function EmployeeTable({ employees, onUpdate }) {
+export default function EmployeeTable({ data, onUpdate }) {
   const [expandedEmployee, setExpandedEmployee] = useState(null)
   
+  const employees = data?.results || []
+
   const toggleExpand = (id) => {
     setExpandedEmployee(expandedEmployee === id ? null : id)
   }
-  
+  console.log(employees)
   if (!employees || employees.length === 0) {
     return <p className="text-gray-500">No employees found.</p>
   }

@@ -150,6 +150,77 @@ class CompanyViewSet(viewsets.ModelViewSet):
             companies.append(company)
             
         return companies
+    
+    @action(detail=False, methods=['post'])
+    def bulk_update(self, request):
+        """Process bulk updates of company data"""
+        if 'file' not in request.FILES:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        file = request.FILES['file']
+        file_extension = file.name.split('.')[-1].lower()
+        
+        try:
+            with transaction.atomic():
+                updated_companies = []
+                
+                if file_extension == 'csv':
+                    updated_companies = self._process_updates_csv(file)
+                elif file_extension in ['xls', 'xlsx']:
+                    updated_companies = self._process_updates_excel(file)
+                elif file_extension == 'txt':
+                    updated_companies = self._process_updates_text(file)
+                else:
+                    return Response(
+                        {'error': 'Unsupported file format'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                return Response({
+                    'message': f'Successfully updated {len(updated_companies)} companies',
+                    'updated': [c.name for c in updated_companies]
+                })
+                
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def _process_updates_csv(self, file):
+        decoded_file = file.read().decode('utf-8')
+        reader = csv.DictReader(io.StringIO(decoded_file))
+        return self._process_update_rows(reader)
+
+    def _process_updates_excel(self, file):
+        df = pd.read_excel(file)
+        return self._process_update_rows(df.to_dict('records'))
+
+    def _process_update_rows(self, rows):
+        updated_companies = []
+        for row in rows:
+            # Use registration_number to identify company
+            try:
+                company = Company.objects.get(registration_number=row['registration_number'])
+                
+                # Update fields if provided
+                for field in ['name', 'address', 'contact_person', 'contact_phone', 'email']:
+                    if field in row and row[field]:
+                        setattr(company, field, row[field])
+                
+                # Handle departments if included
+                if 'departments' in row and row['departments']:
+                    dept_names = [d.strip() for d in row['departments'].split(',')]
+                    for dept_name in dept_names:
+                        Department.objects.get_or_create(
+                            company=company,
+                            name=dept_name
+                        )
+                
+                company.save()
+                updated_companies.append(company)
+                
+            except Company.DoesNotExist:
+                continue  # Skip if company not found
+                
+        return updated_companies
 
 class DepartmentViewSet(viewsets.ModelViewSet):
     queryset = Department.objects.all()

@@ -25,6 +25,7 @@ export default function EmployeeManagement() {
           company: user.company?.id, // Match the parameter name with backend
         }
       })
+      console.log(response.data)
       setEmployees(response.data)
     } catch (error) {
       toast.error('Failed to load employees: ' + 
@@ -69,11 +70,7 @@ export default function EmployeeManagement() {
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-lg shadow-sm">
-        {/* <h3 className="text-lg font-semibold mb-4">Add New Employee</h3>
-        <EmployeeForm onSubmit={handleCreate} />
-      </div>
-
-      <BulkUpload onSuccess={handleBulkUploadSuccess} /> */}
+  
 
 
       <div className="mb-6">

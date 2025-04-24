@@ -10,6 +10,8 @@ export default function EmployeeForm({ onSubmit }) {
   const [departments, setDepartments] = useState([])
   const [isLoading, setIsLoading] = useState(true)
 
+  
+
   useEffect(() => {
     // Fetch departments for the user's company
     const fetchDepartments = async () => {
@@ -21,7 +23,6 @@ export default function EmployeeForm({ onSubmit }) {
           params: { company: user.company }
         })
         setDepartments(response.data.results)
-        
       } catch (error) {
         console.error("Failed to fetch departments:", error)
         toast.error("Failed to load departments")

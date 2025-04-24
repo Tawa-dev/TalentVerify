@@ -344,6 +344,93 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             })
 
         return Response(formatted_results)
+    
+    @action(detail=False, methods=['get'])
+    def edit_template(self, request):
+        """Provide template for bulk editing employees"""
+        output = BytesIO()
+        workbook = xlsxwriter.Workbook(output)
+        worksheet = workbook.add_worksheet()
+        
+        # Add headers with formatting
+        headers = [
+            'employee_id',  # Required for identifying employee
+            'name',
+            'role',
+            'department',
+            'date_started',
+            'date_left',
+            'duties'
+        ]
+        
+        header_format = workbook.add_format({
+            'bold': True,
+            'bg_color': '#f4f4f4'
+        })
+        
+        for col, header in enumerate(headers):
+            worksheet.write(0, col, header, header_format)
+            worksheet.set_column(col, col, 15)
+        
+        # Add example data
+        example_data = [
+            'EMP123',
+            'John Doe',
+            'Software Engineer',
+            'Engineering',
+            '2023-01-01',
+            '2024-01-01',
+            'Development and maintenance'
+        ]
+        
+        for col, value in enumerate(example_data):
+            worksheet.write(1, col, value)
+        
+        # Add instructions sheet
+        instructions = workbook.add_worksheet('Instructions')
+        instructions.write(0, 0, 'Instructions for updating employees:', workbook.add_format({'bold': True}))
+        instructions.write(1, 0, '1. employee_id is required to identify the employee')
+        instructions.write(2, 0, '2. Only fill in fields you want to update')
+        instructions.write(3, 0, '3. Leave fields blank to keep existing values')
+        instructions.write(4, 0, '4. Use YYYY-MM-DD format for dates')
+        
+        workbook.close()
+        
+        output.seek(0)
+        response = HttpResponse(
+            output.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename=employee_edit_template.xlsx'
+        
+        return response
+
+@action(detail=False, methods=['post'])
+def bulk_update(self, request):
+    """Process bulk updates of employee data"""
+    if 'file' not in request.FILES:
+        return Response({'error': 'No file provided'}, status=400)
+    
+    file = request.FILES['file']
+    file_extension = file.name.split('.')[-1].lower()
+    
+    try:
+        with transaction.atomic():
+            if file_extension == 'csv':
+                updated = self._process_updates_csv(file, request.user)
+            elif file_extension in ['xls', 'xlsx']:
+                updated = self._process_updates_excel(file, request.user)
+            elif file_extension == 'txt':
+                updated = self._process_updates_text(file, request.user)
+            else:
+                return Response({'error': 'Unsupported file format'}, status=400)
+            
+            return Response({
+                'message': f'Successfully updated {len(updated)} employees',
+                'updated': updated
+            })
+    except Exception as e:
+        return Response({'error': str(e)}, status=400)
 
 class EmployeeRoleViewSet(viewsets.ModelViewSet):
     queryset = EmployeeRole.objects.all()
