@@ -1,0 +1,85 @@
+# Frontend (React/Vite)
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/*.local
+frontend/logs/
+frontend/*.log
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+
+# Backend (Django)
+backend/__pycache__/
+backend/*/__pycache__/
+backend/*/*/__pycache__/
+backend/*/*/*/__pycache__/
+backend/*.py[cod]
+backend/*$py.class
+backend/*.so
+backend/db.sqlite3
+backend/db.sqlite3-journal
+backend/media/
+backend/static/
+backend/staticfiles/
+backend/local_settings.py
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE/Editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak
+*.swp
+
+# Coverage/Test reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.pytest_cache/
+
+# Misc
+*.log
+*.pot
+*.pyc
+__pycache__/
+*.sage.py
+.env
+.venv
+build/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
