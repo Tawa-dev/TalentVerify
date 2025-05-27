@@ -1,130 +1,58 @@
 from rest_framework import serializers
-from .models import Employee, EmployeeRole
-from companies.models import Department, Company
-from companies.serializers import DepartmentSerializer
+from .models import Employee, EmployeeRole, BulkUploadLog
 
 class EmployeeRoleSerializer(serializers.ModelSerializer):
+    """Serializer for EmployeeRole model."""
+    
+    company_name = serializers.CharField(source='company.name', read_only=True)
     department_name = serializers.CharField(source='department.name', read_only=True)
-    department = serializers.PrimaryKeyRelatedField(queryset=Department.objects.all(), required=False)
     
     class Meta:
         model = EmployeeRole
-        fields = ('id', 'department', 'department_name', 'role', 'date_started', 
-                  'date_left', 'duties', 'created_at', 'updated_at')
-        read_only_fields = ('id', 'created_at', 'updated_at')
+        fields = [
+            'id', 'company', 'company_name', 'department', 'department_name', 
+            'title', 'start_date', 'end_date', 'duties', 'is_current',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
 
 class EmployeeSerializer(serializers.ModelSerializer):
+    """Serializer for Employee model."""
+    
     roles = EmployeeRoleSerializer(many=True, read_only=True)
-    company_name = serializers.CharField(source='company.name', read_only=True)
-    current_role = serializers.SerializerMethodField()
-    current_department = serializers.SerializerMethodField()
-    employee_id = serializers.CharField(required=False)
+    current_company_name = serializers.CharField(source='current_company.name', read_only=True)
+    current_department_name = serializers.CharField(source='current_department.name', read_only=True)
     
     class Meta:
         model = Employee
-        fields = ('id', 'name', 'employee_id', 'company', 'company_name', 
-                  'roles', 'current_role', 'current_department', 
-                  'created_at', 'updated_at')
-        read_only_fields = ('id', 'created_at', 'updated_at')
+        fields = [
+            'id', 'name', 'employee_id', 'current_company', 'current_company_name',
+            'current_department', 'current_department_name', 'current_role', 
+            'date_joined', 'date_left', 'is_active', 'roles', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class EmployeeDetailSerializer(EmployeeSerializer):
+    """Extended serializer for detailed employee information."""
     
-    def get_current_role(self, obj):
-        role = obj.current_role
-        if role:
-            return {
-                'id': role.id,
-                'role': role.role,
-                'department': role.department.name,
-                'date_started': role.date_started
-            }
-        return None
+    roles = EmployeeRoleSerializer(many=True, read_only=True)
     
-    def get_current_department(self, obj):
-        department = obj.current_department
-        return department.name if department else None
+    class Meta(EmployeeSerializer.Meta):
+        fields = EmployeeSerializer.Meta.fields + []
+
+
+class BulkUploadLogSerializer(serializers.ModelSerializer):
+    """Serializer for BulkUploadLog model."""
     
-    def create(self, validated_data):
-        roles_data = self.context.get('roles', [])
-        employee = Employee.objects.create(**validated_data)
-        
-        # Create roles
-        for role_data in roles_data:
-            # Get department from role data
-            department_id = role_data.pop('department')
-            
-            # If department_id is not an integer, it might be a name
-            if not isinstance(department_id, int):
-                try:
-                    # Try to get by ID first (in case it's a string representation of an ID)
-                    try:
-                        department = Department.objects.get(id=int(department_id))
-                    except (ValueError, Department.DoesNotExist):
-                        # If that fails, try to get by name
-                        department = Department.objects.get(
-                            name__iexact=department_id,
-                            company=employee.company
-                        )
-                    department_id = department.id
-                except Department.DoesNotExist:
-                    # Create a new department if it doesn't exist
-                    department = Department.objects.create(
-                        name=department_id,
-                        company=employee.company
-                    )
-                    department_id = department.id
-            
-            try:
-                department = Department.objects.get(id=department_id)
-                
-                EmployeeRole.objects.create(
-                    employee=employee,
-                    department=department,
-                    **role_data
-                )
-            except Department.DoesNotExist:
-                # Log error or handle as needed
-                pass
-            
-        return employee
-    
-    def update(self, instance, validated_data):
-        instance.name = validated_data.get('name', instance.name)
-        
-        # Handle encrypted fields
-        if 'employee_id' in validated_data:
-            instance.employee_id = validated_data.get('employee_id')
-            
-        # If company is changed (rare but possible)
-        if 'company' in validated_data:
-            instance.company = validated_data.get('company')
-            
-        instance.save()
-                
-        return instance
-    
-class PublicEmployeeSerializer(serializers.ModelSerializer):
-    company_name = serializers.CharField(source='company.name', read_only=True)
-    current_role = serializers.SerializerMethodField()
-    current_department = serializers.SerializerMethodField()
+    user_email = serializers.CharField(source='user.email', read_only=True)
     
     class Meta:
-        model = Employee
-        # Exclude employee_id which is sensitive
-        fields = ('id', 'name', 'company', 'company_name', 
-                  'current_role', 'current_department', 
-                  'created_at', 'updated_at')
-        read_only_fields = ('id', 'created_at', 'updated_at')
-    
-    def get_current_role(self, obj):
-        role = obj.current_role
-        if role:
-            return {
-                'id': role.id,
-                'role': role.role,
-                'department': role.department.name,
-                'date_started': role.date_started
-            }
-        return None
-    
-    def get_current_department(self, obj):
-        department = obj.current_department
-        return department.name if department else None
+        model = BulkUploadLog
+        fields = [
+            'id', 'user', 'user_email', 'file_name', 'file_size', 'upload_type',
+            'records_processed', 'records_created', 'records_updated', 'errors',
+            'error_details', 'status', 'created_at', 'completed_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'completed_at']

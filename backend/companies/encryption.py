@@ -1,82 +1,59 @@
-import os
-import base64
+from django.db import models
 from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from django.conf import settings
-import dotenv
+from django.utils.encoding import force_bytes, force_str
+import base64
 
-# Load environment variables from .env file
-dotenv.load_dotenv()
-
-# Get encryption key from environment or generate one
-def get_encryption_key():
-    key = os.getenv('ENCRYPTION_KEY')
-    if not key:
-        # For development only - in production, use an environment variable
-        if settings.DEBUG:
-            # Generate a consistent key from the Django secret key
-            salt = b'talent_verify_salt'
-            kdf = PBKDF2HMAC(
-                algorithm=hashes.SHA256(),
-                length=32,
-                salt=salt,
-                iterations=100000,
-            )
-            key = base64.urlsafe_b64encode(kdf.derive(settings.SECRET_KEY.encode()))
-            return key
-        else:
-            raise ValueError("Encryption key not found in environment variables")
+class EncryptedField(models.Field):
+    """Base class for encrypted fields."""
     
-    # Convert string key to bytes if needed
-    if isinstance(key, str):
-        key = key.encode()
+    def __init__(self, *args, **kwargs):
+        self.fernet = Fernet(force_bytes(settings.FERNET_KEYS[0]))
+        super().__init__(*args, **kwargs)
     
-    # Ensure key is valid base64
-    try:
-        # Pad the key if needed
-        padded_key = key + b'=' * (4 - len(key) % 4) if len(key) % 4 else key
-        # Attempt to decode and encode to verify it's valid base64
-        return base64.urlsafe_b64encode(base64.urlsafe_b64decode(padded_key))
-    except Exception:
-        # If the key is already formatted correctly but not valid base64,
-        # we might be dealing with a raw key
-        try:
-            # Try to ensure it's at least 32 bytes for Fernet
-            if len(key) < 32:
-                raise ValueError("Key is too short")
-            # Return a valid base64 encoded key
-            return base64.urlsafe_b64encode(key[:32])
-        except Exception as e:
-            raise ValueError(f"Invalid encryption key format: {str(e)}")
-
-_fernet_instance = None
-
-def get_fernet():
-    global _fernet_instance
-    if _fernet_instance is None:
-        key = get_encryption_key()
-        # key should already be bytes and base64 encoded from get_encryption_key
-        _fernet_instance = Fernet(key)
-    return _fernet_instance
-
-def encrypt_field(value):
-    """Encrypt a field value"""
-    if value is None:
-        return None
+    def get_internal_type(self):
+        return "TextField"
     
-    value_str = str(value)
-    fernet = get_fernet()
-    return fernet.encrypt(value_str.encode()).decode()
-
-def decrypt_field(encrypted_value):
-    """Decrypt a field value"""
-    if encrypted_value is None:
-        return None
+    def get_db_prep_value(self, value, connection, prepared=False):
+        if value is None:
+            return None
         
-    fernet = get_fernet()
-    try:
-        return fernet.decrypt(encrypted_value.encode()).decode()
-    except Exception as e:
-        # Return an error indicator instead of failing completely
-        return f"[Decryption Error: {str(e)}]"
+        # Encrypt the value before storing it
+        value = force_bytes(value)
+        encrypted_value = self.fernet.encrypt(value)
+        return base64.b64encode(encrypted_value).decode('ascii')
+    
+    def from_db_value(self, value, expression, connection):
+        if value is None:
+            return value
+        
+        # Decrypt the value from the database
+        try:
+            encrypted_value = base64.b64decode(value)
+            decrypted_value = self.fernet.decrypt(encrypted_value)
+            return force_str(decrypted_value)
+        except Exception:
+            return None
+
+
+class EncryptedCharField(EncryptedField):
+    """CharField that transparently encrypts its value."""
+    
+    def __init__(self, max_length=255, *args, **kwargs):
+        self.max_length = max_length
+        super().__init__(*args, **kwargs)
+    
+    def deconstruct(self):
+        name, path, args, kwargs = super().deconstruct()
+        kwargs['max_length'] = self.max_length
+        return name, path, args, kwargs
+
+
+class EncryptedEmailField(EncryptedField):
+    """EmailField that transparently encrypts its value."""
+    
+    def formfield(self, **kwargs):
+        from django.forms import EmailField
+        defaults = {'form_class': EmailField}
+        defaults.update(kwargs)
+        return super().formfield(**defaults)

@@ -46,12 +46,13 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'django_filters',
+    # 'django-fernet-fields',
     
     # Local apps
-    'users',
     'companies',
+    'users',
     'employees',
-    'dashboard',
+    # 'dashboard',
 ]
 
 MIDDLEWARE = [
@@ -133,9 +134,15 @@ REST_FRAMEWORK = {
 
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = DEBUG  # Only in development
+CORS_ALLOW_ALL_ORIGINS = False  # More secure to explicitly list allowed origins
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',  
+    # 'http://localhost:3000',
+]
+
+# Use environment variables in production
 if not DEBUG:
-    CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
+    CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:5173').split(',')
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
@@ -169,4 +176,15 @@ from datetime import timedelta
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
 }
+
+#Fernet encryption settings
+# In production, this should be a secure, randomly generated key stored in environment variables
+# Generate a key with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+FERNET_KEYS = [os.getenv('FERNET_KEY', 'PbEgeq2o7ARQ58-MtD9x3NAtLh-jf3UZx4iJmqdgv1w=')]
+ 
+
